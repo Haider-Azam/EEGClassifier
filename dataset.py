@@ -1,5 +1,6 @@
 #/***************************************************************************************
 #*    Modified by: Rahat Ul Ain
+#*    Modified further by : M. Haider Azam
 #*    Original Source
 #*    Title: auto-eeg-diagnosis-example
 #*    Author: Robin T. Schirrmeister   
@@ -7,38 +8,10 @@
 #*    Availability: https://github.com/robintibor/auto-eeg-diagnosis-example
 #*
 #***************************************************************************************/
-
-import re
 import numpy as np
 import glob
 import os.path
-import torch#for testing gpu 
-
 import mne
-
-
-
-def session_key(file_name):
-    """ sort the file name by session """
-    return re.findall(r'(s\d{2})', file_name)
-
-
-def natural_key(file_name):
-    """ provides a human-like sorting key of a string """
-    key = [int(token) if token.isdigit() else None
-           for token in re.split(r'(\d+)', file_name)]
-    return key
-
-def time_key(file_name):
-    """ provides a time-based sorting key """
-    splits = file_name.split('/')
-    [date] = re.findall(r'(\d{4}_\d{2}_\d{2})', splits[-2])
-    date_id = [int(token) for token in date.split('_')]
-    recording_id = natural_key(splits[-1])
-    session_id = session_key(splits[-2])
-
-    return date_id + session_id + recording_id
-
 
 def read_all_file_names(path, extension, key="time"):
     """ read all files with specified extension from given path
@@ -48,13 +21,7 @@ def read_all_file_names(path, extension, key="time"):
     important for cv. time is specified in the edf file names
     """
     file_paths = glob.glob(path + '**/*' + extension, recursive=True)
-    return file_paths     #RETURN TO STOP SORTING
-
-    if key == 'time':
-        return sorted(file_paths, key=time_key)
-
-    elif key == 'natural':
-        return sorted(file_paths, key=natural_key)
+    return file_paths
 
 def get_info_with_mne(file_path):
     """ read info from the edf file without loading the data. loading data is done in multiprocessing since it takes
@@ -112,9 +79,7 @@ def get_recording_length(file_path):
 def load_data(fname, preproc_functions, sensor_types=['EEG']):
     cnt, sfreq, n_samples, n_channels, chan_names, n_sec = get_info_with_mne(
         fname)
-    ##edit to get on gpu
-    #torch.cuda.set_device(1)
-    #print("--------------------------------" + torch.cuda.get_device_name(0))
+
 
     cnt.load_data(verbose=False)
     selected_ch_names = []
@@ -172,8 +137,6 @@ def get_all_sorted_file_names_and_labels(train_or_eval, folders):
         full_folder = os.path.join(folder, train_or_eval) + '/'
         this_file_names = read_all_file_names(full_folder, '.edf', key='time')
         all_file_names.extend(this_file_names)
-    #all_file_names = sorted(all_file_names, key=time_key)
-    #COMMENT OUT TO STOP SORTING
 
     labels = ['abnormal' in f for f in all_file_names]
     labels = np.array(labels).astype(np.int64)
