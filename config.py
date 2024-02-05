@@ -2,6 +2,7 @@
 # below these given folders
 # Folders should contain all normal and abnormal data files without duplications
 data_folders = ['E:/NMT_dataset/normal','E:/NMT_dataset/abnormal']
+processed_folder='E:/exp1_1'
 n_recordings = None  # set to an integer, if you want to restrict the set size
 sensor_types = ["EEG"]
 n_chans = 21
@@ -21,6 +22,7 @@ model_name = 'shallow'#shallow/deep for DNN (deep terminal local 1)
 n_start_chans = 25
 n_chan_factor = 2  # relevant for deep model only
 input_time_length = 6000
+stride=100  #stride is sampling frequency to ensure only one non-overlapping second for the windows
 final_conv_length = 1
 model_constraint = 'defaultnorm'
 init_lr = 1e-3

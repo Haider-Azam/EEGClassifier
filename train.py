@@ -1,6 +1,8 @@
 import numpy as np
 import torch
 import skorch
+import h5py
+import pandas as pd
 from torch import nn
 from torch.utils.data import DataLoader
 from torch.nn.functional import elu,relu,leaky_relu
@@ -44,15 +46,49 @@ class H5_Dataset(torch.utils.data.Dataset):
         with h5py.File(self.path, 'r') as h5_file:
             return len(h5_file[f'Y_{self.split}'])
     
+
+class WindowDataset(torch.utils.data.Dataset):
+    def __init__(self, excel_path,input_time_length,stride):
+        self.input_time_length=input_time_length
+        self.stride=stride
+        super().__init__()
+        excel_file=pd.read_excel(excel_path)
+        self.file_names=excel_file['name'].to_numpy(dtype=str)
+        self.label=excel_file['label'].to_numpy()
+        self.windows=excel_file['no_of_windows'].to_numpy()
+        self.windows=np.cumsum(self.windows)
+
+
+    def __getitem__(self, index):
+        position=np.argmax(self.windows > index)
+        #Calculates position relative to a recording
+        if position>0:
+            window_position=(index-self.windows[position-1])
+        else:
+            window_position=index
+        window_position*=self.stride
+        #print(self.file_names[position])
+        with h5py.File(self.file_names[position], 'r') as h5_file:
+            window=h5_file['x'][:,window_position : window_position + self.input_time_length]
+
+        label=self.label[position]
+        return window,label
+ 
+    def __len__(self):
+        return self.windows[-1]
+    
+    
 if __name__=='__main__':
     set_log_level(False)
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
     device = 'cuda' if cuda else 'cpu'
     torch.backends.cudnn.benchmark = True
-    test_set=H5_Dataset('E:/exp1_1/test.hdf5','test')
-    train_set=H5_Dataset('E:/exp1_1/train.hdf5','train')
+    #test_set=H5_Dataset('E:/exp1_1/test.hdf5','test')
+    #train_set=H5_Dataset('E:/exp1_1/train.hdf5','train')
+    test_set=WindowDataset(f'{processed_folder}/eval.xlsx',input_time_length,stride)
+    train_set=WindowDataset(f'{processed_folder}/train.xlsx',input_time_length,stride)
     #Put model name here
-    model_name="TCN"
+    model_name="shallow"
 
     criterion=torch.nn.NLLLoss
     n_classes = 2
@@ -289,8 +325,8 @@ if __name__=='__main__':
             iterator_train__shuffle=True,
             iterator_train__pin_memory=True,
             iterator_valid__pin_memory=True,
-            iterator_train__num_workers=4,
-            iterator_valid__num_workers=4,
+            iterator_train__num_workers=2,
+            iterator_valid__num_workers=2,
             iterator_train__persistent_workers=True,
             iterator_valid__persistent_workers=True,
             batch_size=batch_size,
