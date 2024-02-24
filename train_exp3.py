@@ -44,22 +44,23 @@ class Exp3Dataset(torch.utils.data.Dataset):
     
 if __name__=='__main__':
     device = 'cuda' if cuda else 'cpu'
-    n_chans=2
-    input_time_length=input_time_length//n_chans
+    
     set_log_level(False)
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
     torch.backends.cudnn.benchmark = True
     #test_set=H5_Dataset('E:/exp1_1/test.hdf5','test')
     #train_set=H5_Dataset('E:/exp1_1/train.hdf5','train')
-    test_set=Exp3Dataset(f'{processed_folder}/eval.xlsx',n_chans,input_time_length)
-    train_set=Exp3Dataset(f'{processed_folder}/train.xlsx',n_chans,input_time_length)
+    
     #Put model name here
-    model_name="shallow_deep"
+    model_name="transformer"
 
     criterion=torch.nn.NLLLoss
     n_classes = len(ab_label_dict)
-    print('input shape: ',train_set.__getitem__(0)[0].shape)
+    
     if model_name=="shallow":
+        n_chans=2
+        input_time_length=input_time_length//n_chans
+
         optimizer_lr = 0.0000625
         optimizer_weight_decay = 0
         pool_time_length = 16
@@ -87,6 +88,9 @@ if __name__=='__main__':
         out=model.forward(test)
         print(out.shape)
     elif model_name == 'shallow_smac':
+        n_chans=2
+        input_time_length=input_time_length//n_chans
+
         optimizer_lr = 0.0000625
         optimizer_weight_decay = 0
         #conv_nonlin = identity
@@ -119,6 +123,9 @@ if __name__=='__main__':
         out=model.forward(test)
         print(out.shape)
     elif model_name=="deep":
+        n_chans=2
+        input_time_length=input_time_length//n_chans
+
         optimizer_lr = init_lr
         optimizer_weight_decay = 0
         model = Deep4Net(n_chans, n_classes,
@@ -134,6 +141,9 @@ if __name__=='__main__':
         out=model.forward(test)
         print(out.shape)
     elif model_name=="deep_smac" or model_name == 'deep_smac_bnorm':
+        n_chans=2
+        input_time_length=input_time_length//n_chans
+
         optimizer_lr = 0.0000625
         if model_name == 'deep_smac':
                 do_batch_norm = False
@@ -181,32 +191,20 @@ if __name__=='__main__':
         test=torch.ones(size=(6,n_chans,input_time_length))
         #out=model.forward(test)
         #print(out.shape)
-        del do_batch_norm,drop_prob,filter_length_2,filter_length_3,filter_length_4,filter_time_length,first_nonlin,n_chan_factor,n_start_chans,first_pool_mode,later_nonlin,later_pool_mode,n_filters_factor,n_filters_start,pool_time_length,pool_time_stride,split_first_layer
-    #Works properly, fit the hybrid cnn
-    elif model_name=="hybrid":
-        optimizer_lr = 0.0000625
-        optimizer_weight_decay = 0
-        #The final conv length is auto to ensure that output will give two values for single EEG window
-        model = HybridNet(n_chans, n_classes,n_times=input_time_length,)
-        test=torch.ones(size=(2,n_chans,input_time_length))
-        out=model.forward(test)
-        out_length=out.shape[2]
-        model.final_layer=nn.Conv2d(100,n_classes,(out_length,1),bias=True,)
-        model=nn.Sequential(model,nn.Flatten(),nn.LogSoftmax(dim=1))
-        out=model.forward(test)
-        print(out.shape)
-        del out_length
     elif model_name=="TCN":
+        n_chans=1
+        input_time_length=input_time_length//n_chans
+
         criterion=torch.nn.NLLLoss
         import warnings
         #This disables the warning of the dropout2d layers receiving 3d input
         warnings.filterwarnings("ignore")
         optimizer_lr = 0.0000625
         optimizer_weight_decay = 0
-        n_blocks=7
+        n_blocks=5
         n_filters=32
-        kernel_size=24
-        drop_prob = 0.3
+        kernel_size=5
+        drop_prob = 0.4
         x=TCN(n_chans,n_classes,n_blocks,n_filters,kernel_size,drop_prob)
         test=torch.ones(size=(7,n_chans,input_time_length))
         out=x.forward(test)
@@ -217,6 +215,9 @@ if __name__=='__main__':
         print(out.shape)
         del out_length,x
     elif model_name=="shallow_deep":
+        n_chans=2
+        input_time_length=input_time_length//n_chans
+
         drop_prob = 0.244445
         filter_length_2 = 8
         filter_length_3 = 12
@@ -266,6 +267,9 @@ if __name__=='__main__':
         #    print(out.shape)
 
     elif model_name=="attention":
+        n_chans=2
+        input_time_length=input_time_length//n_chans
+
         optimizer_lr = 0.0000625
         optimizer_weight_decay = 0
         model=ATCNet(n_chans,n_classes,input_time_length//sampling_freq,sampling_freq,concat=True)
@@ -273,13 +277,16 @@ if __name__=='__main__':
         out=model.forward(test)
         print(out.shape)
     elif model_name=="transformer":
+        n_chans=1
+        input_time_length=input_time_length//n_chans
+
         optimizer_lr = 0.0000625
         optimizer_weight_decay = 0
         #criterion=torch.nn.CrossEntropyLoss
-        n_filters_time=16
+        n_filters_time=32
         att_depth=1
         filter_time_length=16
-        att_heads=4
+        att_heads=8
         add_log_softmax=False
         criterion=torch.nn.CrossEntropyLoss
         model=EEGConformer(n_outputs=n_classes,n_chans=n_chans,n_times=input_time_length,input_window_seconds=input_time_length//sampling_freq,
@@ -291,7 +298,12 @@ if __name__=='__main__':
     if cuda:
         model.cuda()
     del test
+    
+    test_set=Exp3Dataset(f'{processed_folder}/eval.xlsx',n_chans,input_time_length)
+    train_set=Exp3Dataset(f'{processed_folder}/train.xlsx',n_chans,input_time_length)
+    print('input shape: ',train_set.__getitem__(0)[0].shape)
     print(model_name)
+
 
     monitor = lambda net: any(net.history[-1, ('valid_accuracy_best','valid_f1_best','valid_loss_best')])
     cp=Checkpoint(monitor='valid_acc_best',dirname='model',f_params=f'{model_name}best_param.pkl',
