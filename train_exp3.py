@@ -65,7 +65,7 @@ if __name__=='__main__':
         optimizer_weight_decay = 0
         pool_time_length = 16
         pool_time_stride = 2
-        filter_time_length = 16
+        filter_time_length = 80
         n_filters_spat = 64
         n_filters_time = 32
         split_first_layer = True
@@ -267,7 +267,7 @@ if __name__=='__main__':
         #    print(out.shape)
 
     elif model_name=="attention":
-        n_chans=2
+        n_chans=1
         input_time_length=input_time_length//n_chans
 
         optimizer_lr = 0.0000625
@@ -284,8 +284,8 @@ if __name__=='__main__':
         optimizer_weight_decay = 0
         #criterion=torch.nn.CrossEntropyLoss
         n_filters_time=32
-        att_depth=1
-        filter_time_length=16
+        att_depth=3
+        filter_time_length=32
         att_heads=8
         add_log_softmax=False
         criterion=torch.nn.CrossEntropyLoss
@@ -315,7 +315,7 @@ if __name__=='__main__':
             criterion=criterion,
             optimizer=torch.optim.AdamW,
             train_split=predefined_split(test_set),
-            optimizer__lr=optimizer_lr,
+            optimizer__lr=0.0000025,
             #optimizer__weight_decay=optimizer_weight_decay,
             iterator_train=DataLoader,
             iterator_valid=DataLoader,
@@ -332,4 +332,10 @@ if __name__=='__main__':
             warm_start=True,
             )
     classifier.initialize()
+    try:
+        classifier.load_params(f_params=f'model/{model_name}best_param.pkl', f_history=f'model/{model_name}best_history.json')
+        print("Loading Succeded")
+    except:
+        print("Loading failed")
     classifier.fit(train_set,epochs=100)
+    classifier.save_params(f_params=f'model/{path}_param.pkl', f_history=f'model/{path}_history.json')
